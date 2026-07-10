@@ -1,80 +1,103 @@
-# ASCII3D Lab
+# Sculpture Garden
 
-Una app Android nativa para modelar geometría 3D en una pantalla ASCII. Es como meter un mini Blender dentro de una terminal verde fosforescente, pero sin que el APK pese como una nevera.
+**Sculpture Garden** is a premium Android prototype for cultivating abstract digital sculptures.
 
-## Qué tiene esta primera versión
+It is not a CAD tool. It is not a classic 3D editor. It is a quiet creative ecosystem where forms grow, mutate, branch and evolve through gestures.
 
-- Render 3D ASCII con `Canvas`, sin motores externos.
-- Primitivas: cubo, pirámide y esfera low-poly.
-- Cámara orbital con arrastre.
-- Zoom con gesto de pellizco.
-- Extrusión de cara frontal.
-- Modo edición para mover vértices arrastrando.
-- Mutación orgánica de la malla.
-- Cambio de paletas de caracteres ASCII.
-- Exportación del snapshot ASCII usando el menú de compartir de Android.
-- GitHub Action para generar un APK debug automáticamente.
+The experience is designed to sit between a museum, a botanical garden and an experimental art instrument.
 
-## Estructura
+## Core idea
 
-```txt
-ascii3d-modeler/
-├─ app/
-│  ├─ build.gradle
-│  └─ src/main/
-│     ├─ AndroidManifest.xml
-│     ├─ java/com/mangoscam/ascii3d/
-│     │  ├─ MainActivity.java
-│     │  └─ AsciiModelerView.java
-│     └─ res/values/styles.xml
-├─ .github/workflows/build-apk.yml
-├─ build.gradle
-├─ settings.gradle
-├─ gradle.properties
-└─ README.md
-```
+Every sculpture begins as **The Seed**.
 
-## Construir el APK en GitHub
+The user does not insert primitives. There are no cubes, cylinders or toolbars. The sculpture grows as an organism:
 
-1. Crea una repo nueva en GitHub, por ejemplo `ascii3d-modeler`.
-2. Sube estos archivos.
-3. Entra en la pestaña **Actions**.
-4. Ejecuta **Build debug APK**.
-5. Descarga el artifact `ASCII3D-Lab-debug-apk`.
-6. Instala `app-debug.apk` en tu móvil.
+- Swipe: grow and orbit the organism
+- Long press: increase mass
+- Pinch: split structure
+- Rotate gesture movement: twist the organism
+- Shake phone: mutate
+- Volume Up: generate branch
+- Volume Down: collapse branch
+- Tap **EVOLVE**: create five descendants
+- Tap a descendant: choose the survivor
+- Double tap: Relax Mode
+- Tap **MUSEUM / VOID**: switch gallery atmosphere
 
-## Construir localmente
+## DNA system
 
-Con Android Studio: abre la carpeta del proyecto y ejecuta `app`.
+Each sculpture has a living DNA profile:
 
-Con terminal, teniendo Android SDK y Gradle instalados:
+- Shape curvature
+- Elasticity
+- Chaos
+- Rhythm
+- Density
+- Thickness
+- Balance
+- Growth
+- Branch frequency
+- Material
+- Shadow softness
+- Surface noise
+- Palette shift
+
+The current prototype already creates descendants by mutating DNA intelligently, keeping the family coherent and visually pleasing.
+
+## Evolution system
+
+There is no **New Sculpture** flow.
+
+The central action is **EVOLVE**.
+
+The active organism creates five descendants. The user chooses which one survives. The chosen sculpture becomes the next generation.
+
+## Visual direction
+
+Dark gallery by default. Minimal typography. Large empty spaces. No colorful buttons. The interface is intended to disappear so the sculpture can breathe.
+
+A white museum mode is included as a quiet alternate atmosphere.
+
+## Build APK
+
+Push this repository to GitHub. The included GitHub Actions workflow builds a debug APK automatically.
+
+Download the APK from:
+
+`GitHub → Actions → Build debug APK → Artifacts → Sculpture-Garden-debug-apk`
+
+## Local build
 
 ```bash
-gradle :app:assembleDebug
+gradle :app:assembleDebug --no-daemon
 ```
 
-El APK saldrá en:
+APK output:
 
-```txt
+```text
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Controles
+## Roadmap
 
-- Arrastrar: rotar cámara.
-- Pellizcar: zoom.
-- **Cubo / Pira / Esfera**: cambia la primitiva.
-- **Extrude**: extruye la cara más frontal.
-- **Mutar**: deforma la malla.
-- **Editar**: activa edición de vértices. Toca cerca de un vértice y arrastra.
-- **Chars**: cambia la paleta ASCII.
-- **Share**: exporta el modelo como texto ASCII.
+- Save and share DNA codes
+- Forests instead of folders
+- Evolutionary tree view
+- Materials library
+- Cinematic camera paths
+- Poster export
+- GLB / OBJ / STL export
+- AR placement
+- Ambient sound mode
+- Genetic crossover between two sculptures
+- AI-assisted mutation suggestions
 
-## Próximos pasos buenos
+## Package
 
-- Guardar y cargar proyectos `.ascii3d`.
-- Añadir herramientas: cortar, bevel, duplicar, suavizar, simetría.
-- Exportar OBJ simple desde la nube de vértices y caras.
-- Modo “escultura ASCII” con pincel de empujar/tirar.
-- Timeline para animaciones raras tipo criatura-terminal.
-- Integración con tu universo visual: símbolos, glitches, texturas ASCII y export para pósters.
+```text
+com.mangoscam.sculpturegarden
+```
+
+## Artistic note
+
+This app is a garden for impossible organisms. The user does not model the sculpture. The user discovers what the sculpture wants to become.

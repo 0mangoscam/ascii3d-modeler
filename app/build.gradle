@@ -3,13 +3,13 @@ plugins {
 }
 
 android {
-    namespace 'com.mangoscam.ascii3d'
-    compileSdk 36
+    namespace 'com.mangoscam.sculpturegarden'
+    compileSdk 35
 
     defaultConfig {
-        applicationId 'com.mangoscam.ascii3d'
+        applicationId 'com.mangoscam.sculpturegarden'
         minSdk 26
-        targetSdk 36
+        targetSdk 35
         versionCode 1
         versionName '0.1.0'
     }

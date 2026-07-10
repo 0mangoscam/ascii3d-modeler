@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = 'Ascii3DModeler'
+rootProject.name = 'SculptureGarden'
 include ':app'
