@@ -1,68 +1,43 @@
-# Sculpture Garden V0.4 — Sound Growth
+# Sculpture Garden
 
-Premium Android art instrument for cultivating ASCII sculptures with 3D volume.
+**Sculpture Garden V0.5 — Particle Genesis**
 
-## Concept
+A premium Android art instrument by mangoscam / Brian Novillo.
 
-Sculpture Garden is not a CAD app and not a classic sculpting tool. It is a living audiovisual garden where abstract sculptures are cultivated from sound.
+This is not a CAD tool and not a conventional 3D editor. The app listens, births ASCII particles from sound, lets them orbit as living matter, and condenses them into volumetric 3D ASCII sculptures.
 
-The app now uses **Organic Sound Growth**:
+## Core idea
 
-- Microphone input feeds the sculpture in real time.
-- Bass creates mass and thickness.
-- Mids grow the main soft tubular structure.
-- Highs add root-lines, coils and glyph accents.
-- Onsets create biological sprout events.
-- Sustain bends and cultivates existing forms.
-- Silence stabilizes and calms the organism.
+```text
+sound -> particles -> clusters -> condensation -> ASCII volume sculpture
+```
 
-## Visual DNA
+## V0.5 features
 
-The visual language is based on mangoscam / Brian Novillo's abstract soft-form aesthetic:
-
-- rounded ASCII volume
-- tubes
-- loops
-- arches
-- coils
-- soft glyphs
-- root-like fine lines
-- floating compositions
-- flat canvas backgrounds
-- curated color families
+- Organic microphone input.
+- Sound-born ASCII particles.
+- Bass particles become heavy mass.
+- Mid particles become structural matter.
+- High particles become nervous details and roots.
+- Transients create bursts.
+- Particle field with cohesion, orbit, drift and decay.
+- Cluster condensation: particles precipitate into sculptural modules.
+- Volumetric ASCII rendering with depth, light, shadow and character density.
+- MIDI still steers the field and DNA.
+- Mangoscam DNA palette and soft glyph language.
 
 ## Interaction
 
-- Sound grows the sculpture organically.
-- Swipe rotates and adds gesture.
-- Pinch splits structure.
-- Long press increases mass.
-- Shake mutates.
-- Volume Up adds a new gesture.
+- Sound creates particles.
+- Particles condense into sculpture.
+- Volume Up creates a new gesture.
 - Volume Down simplifies.
-- MIDI notes still grow and pulse the organism.
-- MIDI CC can steer DNA parameters.
+- Shake mutates.
+- Pinch splits.
+- Long press increases mass.
+- Double tap enters relax/poster mode.
+- MIDI notes and CCs steer the organism.
 
-## Audio Mapping
+## Philosophy
 
-```text
-RMS    -> global organism energy
-Bass   -> mass, thickness, capsules
-Mids   -> structure, tubes, arcs, loops
-Highs  -> accents, root-lines, coils
-Onset  -> sprout events
-Sustain-> slow cultivation
-Silence-> calm / stabilization
-```
-
-## Build
-
-The GitHub Actions workflow builds a debug APK automatically.
-
-```bash
-gradle :app:assembleDebug --no-daemon
-```
-
-## Version
-
-V0.4.0 — ASCII volume + microphone-driven organic sound growth + MIDI steering.
+The app is a contemplative sound-grown sculpture garden. It should feel like discovering life inside geometry, not operating a productivity tool.

@@ -36,6 +36,12 @@ public class SculptureGardenView extends View {
     private final RectF asciiRect = new RectF();
     private final RectF listenRect = new RectF();
 
+    private final Random particleRandom = new Random(8844L);
+    private final List<SoundParticle> soundParticles = new ArrayList<>();
+    private long particleSequence = 0L;
+    private long lastParticleCondenseAt = 0L;
+    private float condensationCharge = 0f;
+
     private Sculpture current;
     private final List<Sculpture> garden = new ArrayList<>();
     private final List<Sculpture> descendants = new ArrayList<>();
@@ -182,12 +188,14 @@ public class SculptureGardenView extends View {
 
         float livingEnergy = clamp(micRms * 0.52f + micBass * 0.26f + micMids * 0.15f + micHighs * 0.07f, 0f, 1f);
         targetSoundEnergy = Math.max(targetSoundEnergy, livingEnergy * 1.15f);
+        spawnParticlesFromAudio(micRms, micBass, micMids, micHighs, micOnset, micSustain, micSilence);
+        updateParticleField(micBass, micMids, micHighs, micOnset, micSustain, micSilence);
 
         long now = System.currentTimeMillis();
         if (micOnset > 0.34f && livingEnergy > 0.09f && now - lastAudioSproutAt > 330L) {
             lastAudioSproutAt = now;
             lastAudioGrowthAt = now;
-            current.growFromSound(micBass, micMids, micHighs, micOnset, micSustain);
+            condenseParticleCloud(micBass, micMids, micHighs, micOnset, micSustain, false);
             pulse(audioEventName(micBass, micMids, micHighs, micOnset));
         } else if (livingEnergy > 0.055f && now - lastAudioGrowthAt > 190L) {
             lastAudioGrowthAt = now;
@@ -400,7 +408,9 @@ public class SculptureGardenView extends View {
             drawDescendants(canvas, w, h, t);
         } else {
             drawGardenGhosts(canvas, w, h, t);
+            drawParticleField(canvas, w, h, Math.min(w, h) * 0.36f * zoom, t, false);
             drawSculpture(canvas, current, w * 0.50f, h * 0.51f, Math.min(w, h) * 0.36f * zoom, 1.0f, orbitX, orbitY, t, false);
+            drawParticleField(canvas, w, h, Math.min(w, h) * 0.36f * zoom, t, true);
             drawSeedGlow(canvas, w, h, t);
         }
         if (!relaxMode) drawInterface(canvas, w, h, t); else drawRelaxWhisper(canvas, w, h, t);
@@ -476,6 +486,161 @@ public class SculptureGardenView extends View {
             drawSculpture(canvas, descendants.get(i), cx, rowY, Math.min(w, h) * 0.112f, 0.95f, orbitX * 0.35f, orbitY + i * 0.5f + t * 0.055f, t, false);
             drawTextCentered(canvas, descendants.get(i).mutationName, cx, rowY + h * 0.19f, 8.5f, 0.50f);
         }
+    }
+
+
+    private void spawnParticlesFromAudio(float rms, float bass, float mids, float highs, float onset, float sustain, float silence) {
+        float energy = clamp(rms * 0.42f + bass * 0.25f + mids * 0.20f + highs * 0.13f, 0f, 1f);
+        if (energy < 0.018f && onset < 0.05f) return;
+        int birthCount = 1 + (int)(energy * 7f) + (int)(onset * 12f);
+        birthCount = Math.min(18, birthCount);
+        for (int i = 0; i < birthCount; i++) {
+            float pick = particleRandom.nextFloat() * Math.max(0.001f, bass + mids + highs + onset * 0.6f);
+            int type;
+            if ((pick -= bass) <= 0f) type = SoundParticle.BASS;
+            else if ((pick -= mids) <= 0f) type = SoundParticle.MID;
+            else if ((pick -= highs) <= 0f) type = SoundParticle.HIGH;
+            else type = SoundParticle.TRANSIENT;
+            spawnSoundParticle(type, energy, bass, mids, highs, onset, sustain);
+        }
+        while (soundParticles.size() > 520) soundParticles.remove(0);
+    }
+
+    private void spawnSoundParticle(int type, float energy, float bass, float mids, float highs, float onset, float sustain) {
+        SoundParticle p = new SoundParticle();
+        p.id = particleSequence++;
+        p.type = type;
+        p.age = 0f;
+        p.life = 2.2f + particleRandom.nextFloat() * 5.4f + sustain * 3.8f;
+        p.energy = clamp(0.24f + energy * 0.76f + onset * 0.42f, 0f, 1.35f);
+        p.mass = type == SoundParticle.BASS ? 1.8f : type == SoundParticle.MID ? 1.15f : type == SoundParticle.HIGH ? 0.62f : 1.0f;
+        p.affinity = particleRandom.nextFloat();
+
+        float archetypeAngle = current == null ? 0f : current.dna.rhythm * 6.283f + current.dna.twist;
+        float burst = type == SoundParticle.TRANSIENT ? 0.28f + onset * 0.52f : 0.08f + energy * 0.22f;
+        float a = archetypeAngle + particleRandom.nextFloat() * 6.283f;
+        float r = burst * (0.28f + particleRandom.nextFloat());
+        p.x = (float)Math.cos(a) * r;
+        p.y = (float)Math.sin(a) * r * 0.72f;
+        p.z = (particleRandom.nextFloat() - 0.5f) * (0.28f + energy * 0.80f);
+
+        float speed = 0.0028f + energy * 0.018f + onset * 0.030f;
+        if (type == SoundParticle.BASS) speed *= 0.58f;
+        if (type == SoundParticle.HIGH) speed *= 1.55f;
+        p.vx = (float)Math.cos(a + 1.57f) * speed + (particleRandom.nextFloat() - 0.5f) * speed;
+        p.vy = (float)Math.sin(a + 1.57f) * speed * 0.80f + (particleRandom.nextFloat() - 0.5f) * speed;
+        p.vz = (particleRandom.nextFloat() - 0.5f) * speed * 0.85f;
+        soundParticles.add(p);
+    }
+
+    private void updateParticleField(float bass, float mids, float highs, float onset, float sustain, float silence) {
+        if (soundParticles.isEmpty()) return;
+        float cohesion = 0.003f + micMids * 0.008f + micSustain * 0.006f;
+        float swirl = 0.002f + micHighs * 0.018f + midiPitch * 0.006f;
+        float spread = current == null ? 0.55f : current.dna.compositionSpread;
+        float targetRadius = 0.20f + spread * 0.70f;
+
+        for (int i = soundParticles.size() - 1; i >= 0; i--) {
+            SoundParticle p = soundParticles.get(i);
+            p.age += 0.033f;
+            float dist = (float)Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z) + 0.001f;
+            float ringForce = (targetRadius - dist) * 0.0024f;
+            p.vx += (p.x / dist) * ringForce;
+            p.vy += (p.y / dist) * ringForce;
+            p.vz += (p.z / dist) * ringForce * 0.60f;
+
+            p.vx += -p.y * swirl * (p.type == SoundParticle.HIGH ? 1.8f : 1.0f);
+            p.vy +=  p.x * swirl * (p.type == SoundParticle.BASS ? 0.45f : 1.0f);
+
+            float attract = cohesion * p.mass;
+            p.vx += -p.x * attract;
+            p.vy += -p.y * attract * 0.86f;
+            p.vz += -p.z * attract * 0.68f;
+
+            p.vx += (particleRandom.nextFloat() - 0.5f) * 0.0020f * (0.3f + highs + onset);
+            p.vy += (particleRandom.nextFloat() - 0.5f) * 0.0020f * (0.3f + highs + onset);
+            p.vz += (particleRandom.nextFloat() - 0.5f) * 0.0016f * (0.3f + highs);
+
+            float damping = p.type == SoundParticle.BASS ? 0.925f : p.type == SoundParticle.HIGH ? 0.955f : 0.942f;
+            p.vx *= damping; p.vy *= damping; p.vz *= damping;
+            p.x += p.vx; p.y += p.vy; p.z += p.vz;
+            p.energy *= 0.988f - silence * 0.010f;
+            if (p.age > p.life || p.energy < 0.035f) soundParticles.remove(i);
+        }
+
+        condensationCharge = clamp(condensationCharge + bass * 0.016f + mids * 0.020f + highs * 0.009f + onset * 0.080f - silence * 0.018f, 0f, 1.4f);
+        long now = System.currentTimeMillis();
+        if ((condensationCharge > 0.62f || (onset > 0.54f && soundParticles.size() > 44)) && now - lastParticleCondenseAt > 520L) {
+            condenseParticleCloud(bass, mids, highs, onset, sustain, true);
+            lastParticleCondenseAt = now;
+            condensationCharge *= 0.32f;
+        }
+    }
+
+    private void condenseParticleCloud(float bass, float mids, float highs, float onset, float sustain, boolean fromCloud) {
+        if (soundParticles.size() < 8 && fromCloud) return;
+        if (fromCloud) {
+            float cx = 0f, cy = 0f, cz = 0f, total = 0.001f;
+            for (SoundParticle p : soundParticles) {
+                float w = p.energy * p.mass;
+                cx += p.x * w; cy += p.y * w; cz += p.z * w; total += w;
+            }
+            cx /= total; cy /= total; cz /= total;
+            for (int i = soundParticles.size() - 1; i >= 0; i--) {
+                SoundParticle p = soundParticles.get(i);
+                float dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
+                float d = dx * dx + dy * dy + dz * dz;
+                if (d < 0.34f || particleRandom.nextFloat() < 0.18f) soundParticles.remove(i);
+            }
+        }
+        current.growFromSound(bass, mids, highs, Math.max(onset, condensationCharge), sustain);
+        if (highs > 0.24f && particleRandom.nextFloat() < 0.45f) current.cultivateFromSound(bass * 0.7f, mids, highs, sustain);
+        pulse(fromCloud ? "PARTICLE CONDENSATION" : "SOUND MATTER BLOOM");
+    }
+
+    private void drawParticleField(Canvas canvas, float w, float h, float scale, float time, boolean foreground) {
+        if (soundParticles.isEmpty()) return;
+        Palette palette = museumMode ? Palette.museum() : Palette.get(current.dna.paletteIndex);
+        List<ParticleRender> renders = new ArrayList<>();
+        float rotX = orbitX * 0.62f;
+        float rotY = orbitY + current.dna.twist * 0.42f + time * 0.012f;
+        for (SoundParticle p : soundParticles) {
+            Vec3 rp = rotate(new Vec3(p.x, p.y, p.z), rotX, rotY);
+            boolean front = rp.z > 0.02f;
+            if (foreground != front) continue;
+            float perspective = 1.0f / (1.95f + rp.z * 0.34f);
+            ParticleRender pr = new ParticleRender();
+            pr.x = w * 0.5f + rp.x * scale * perspective;
+            pr.y = h * 0.51f - rp.y * scale * perspective;
+            pr.z = rp.z;
+            pr.size = Math.max(7f, scale * 0.018f * perspective * (0.8f + p.energy * 1.8f) * p.mass);
+            pr.alpha = clamp((1f - p.age / Math.max(0.001f, p.life)) * (0.35f + p.energy), 0f, 1f);
+            pr.type = p.type;
+            pr.energy = p.energy;
+            renders.add(pr);
+        }
+        Collections.sort(renders, new Comparator<ParticleRender>() {
+            @Override public int compare(ParticleRender a, ParticleRender b) { return Float.compare(a.z, b.z); }
+        });
+        final char[] ramp = {'.', ':', '-', '=', '+', '*', '#', '%', '@'};
+        textPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        for (ParticleRender pr : renders) {
+            int role = pr.type == SoundParticle.BASS ? 0 : pr.type == SoundParticle.MID ? 1 : pr.type == SoundParticle.HIGH ? 3 : 2;
+            int base = palette.color(role);
+            float light = clamp(0.42f + pr.z * 0.22f + pr.energy * 0.35f, 0f, 1f);
+            int color = blend(blend(base, Color.BLACK, 0.46f), blend(base, Color.WHITE, 0.52f), light);
+            int index = Math.max(0, Math.min(ramp.length - 1, (int)(light * (ramp.length - 1))));
+            String glyph = String.valueOf(ramp[index]);
+            textPaint.setTextSize(pr.size);
+            if (foreground) {
+                textPaint.setColor(Color.argb((int)(pr.alpha * 54f), 0, 0, 0));
+                canvas.drawText(glyph, pr.x + pr.size * 0.12f, pr.y + pr.size * 0.18f, textPaint);
+            }
+            textPaint.setColor(withAlpha(color, (int)(pr.alpha * (foreground ? 214 : 120))));
+            canvas.drawText(glyph, pr.x, pr.y, textPaint);
+        }
+        textPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL));
     }
 
     private void drawSculpture(Canvas canvas, Sculpture sculpture, float cx, float cy, float scale, float alpha, float rx, float ry, float time, boolean ghost) {
@@ -635,7 +800,7 @@ public class SculptureGardenView extends View {
         textPaint.setColor(withAlpha(uiColor, 132));
         canvas.drawText(dnaLine, pad, h - pad, textPaint);
 
-        String help = "sound grows the organism · bass mass · mids structure · highs roots · MIDI can steer";
+        String help = "sound births particles · particles condense into ASCII volume · MIDI steers the field";
         textPaint.setTextSize(sp(8.5f));
         textPaint.setColor(withAlpha(uiColor, 92));
         canvas.drawText(help, pad, h - pad + sp(16), textPaint);
@@ -753,6 +918,23 @@ public class SculptureGardenView extends View {
         int g = (int)(Color.green(c1) + (Color.green(c2) - Color.green(c1)) * t);
         int b = (int)(Color.blue(c1) + (Color.blue(c2) - Color.blue(c1)) * t);
         return Color.rgb(r, g, b);
+    }
+
+    private static class SoundParticle {
+        static final int BASS = 0;
+        static final int MID = 1;
+        static final int HIGH = 2;
+        static final int TRANSIENT = 3;
+        long id;
+        int type;
+        float x, y, z;
+        float vx, vy, vz;
+        float energy, mass, age, life, affinity;
+    }
+
+    private static class ParticleRender {
+        float x, y, z, size, alpha, energy;
+        int type;
     }
 
     private static class Vec3 {
