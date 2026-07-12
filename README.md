@@ -1,35 +1,47 @@
 # Sculpture Garden
 
-A premium Android art instrument for cultivating soft abstract sculptures instead of modeling objects.
+A premium Android instrument for cultivating abstract sculptures.
 
-## V0.2 Mangoscam DNA
+## V0.3 — ASCII Volume + MIDI
 
-This version shifts the generator away from generic organic branching and toward Brian Novillo / mangoscam's visual language:
+This version moves Sculpture Garden closer to a sonic art instrument:
 
-- thick soft tubular strokes
-- loops, arches, coils, ladders and glyph-like forms
-- rounded clay/plaster feeling
-- flat canvas backgrounds
-- curated palettes: Red Room, Museum Mint, Soft Yellow, Gallery Beige, Primary Blue, Dust Pink, Stone White
-- quieter museum interface
-- EVOLVE now creates five family-related descendants: Safe, Minimal, Expressive, Compact and Strange
+- Sculptures render as volumetric ASCII bodies instead of normal clay strokes.
+- The ASCII characters behave like shaded 3D mass, not flat text.
+- MIDI controllers can shape the organism in real time.
+- MIDI notes inject sonic energy, rhythm, twist and new gestures.
+- MIDI CC controls map to DNA parameters.
+- The previous Mangoscam DNA visual language remains active.
 
-## Controls
+## MIDI Mapping
 
-- Swipe: orbit and add gestural growth
-- Long press: increase mass
-- Pinch: split structure
-- Shake: soft mutation
-- Volume Up: new gesture
-- Volume Down: simplify/collapse
-- Double tap: Relax poster mode
-- EVOLVE: generate five descendants
-- ART DNA label: toggle stronger/quieter Mangoscam DNA
+Connect a USB MIDI controller through USB-C / OTG, then open the app.
+
+Recommended controls:
+
+- Notes: pulse, grow and bend the current organism.
+- Program Change: switch palette.
+- CC 1: curvature.
+- CC 2: thickness.
+- CC 7: growth.
+- CC 10: composition spread.
+- CC 11: accent lines.
+- CC 71: chaos.
+- CC 74: loop frequency.
+- CC 91: surface noise.
+
+## Touch Mapping
+
+- Swipe: rotate and add gestures.
+- Pinch: split structure.
+- Long press: increase mass.
+- Shake: mutate.
+- Volume Up: add gesture.
+- Volume Down: simplify.
+- Double tap: relax mode.
+- ASCII / CLAY: toggle visual render mode.
 
 ## Build
 
-The repository includes a GitHub Actions workflow that builds a debug APK.
+GitHub Actions builds the debug APK automatically on push.
 
-Go to:
-
-Actions → Build debug APK → Artifacts → Sculpture-Garden-debug-apk

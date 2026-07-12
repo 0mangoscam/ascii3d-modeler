@@ -33,6 +33,7 @@ public class SculptureGardenView extends View {
     private final RectF museumRect = new RectF();
     private final RectF relaxRect = new RectF();
     private final RectF dnaRect = new RectF();
+    private final RectF asciiRect = new RectF();
 
     private Sculpture current;
     private final List<Sculpture> garden = new ArrayList<>();
@@ -41,6 +42,8 @@ public class SculptureGardenView extends View {
     private boolean museumMode = false;
     private boolean relaxMode = false;
     private boolean artDnaMode = true;
+    private boolean asciiVolumeMode = true;
+    private boolean midiConnected = false;
     private boolean running = true;
     private boolean splitDuringPinch = false;
 
@@ -49,6 +52,11 @@ public class SculptureGardenView extends View {
     private float zoom = 1.0f;
     private float targetZoom = 1.0f;
     private float lastDragDistance = 0f;
+    private float soundEnergy = 0f;
+    private float targetSoundEnergy = 0f;
+    private float midiPitch = 0.5f;
+    private float midiControlGlow = 0f;
+    private String midiName = "MIDI WAITING";
     private long birth = System.currentTimeMillis();
 
     private String pulseText = "MANGOSCAM DNA";
@@ -60,7 +68,7 @@ public class SculptureGardenView extends View {
         setFocusableInTouchMode(true);
         if (Build.VERSION.SDK_INT >= 11) setLayerType(View.LAYER_TYPE_SOFTWARE, null);
 
-        textPaint.setTypeface(Typeface.create("sans", Typeface.NORMAL));
+        textPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL));
         textPaint.setLetterSpacing(0.08f);
 
         current = Sculpture.seed();
@@ -135,6 +143,59 @@ public class SculptureGardenView extends View {
 
     public void pause() { running = false; }
 
+    public void setMidiConnected(boolean connected, String name) {
+        midiConnected = connected;
+        midiName = name == null ? (connected ? "MIDI CONNECTED" : "MIDI WAITING") : name;
+        pulse(connected ? "MIDI LINKED · " + midiName : midiName);
+        invalidate();
+    }
+
+    public void onMidiNote(int note, int velocity) {
+        if (choosingDescendant) return;
+        float v = clamp(velocity / 127f, 0f, 1f);
+        midiPitch = clamp((note - 24f) / 72f, 0f, 1f);
+        targetSoundEnergy = Math.max(targetSoundEnergy, 0.35f + v * 0.85f);
+        soundEnergy = Math.max(soundEnergy, targetSoundEnergy);
+
+        current.dna.rhythm = clamp(0.28f + ((note % 12) / 11f) * 0.62f, 0.12f, 0.96f);
+        current.dna.thickness = clamp(current.dna.thickness + (v - 0.45f) * 0.055f, 0.22f, 0.98f);
+        current.dna.loopFrequency = clamp(current.dna.loopFrequency + ((note % 5) - 2) * 0.012f, 0.12f, 0.96f);
+        current.dna.twist += (midiPitch - 0.5f) * 0.18f;
+        if (v > 0.78f || note % 7 == 0) current.addGesture(v);
+        else current.rebuild();
+        pulse("NOTE " + note + " · VEL " + velocity);
+        invalidate();
+    }
+
+    public void onMidiControl(int controller, int value) {
+        if (choosingDescendant) return;
+        float v = clamp(value / 127f, 0f, 1f);
+        midiControlGlow = 1f;
+        switch (controller) {
+            case 1:  current.dna.curvature = clamp(0.18f + v * 0.78f, 0.18f, 0.96f); break;
+            case 2:  current.dna.thickness = clamp(0.20f + v * 0.78f, 0.20f, 0.98f); break;
+            case 7:  current.dna.growth = clamp(0.16f + v * 0.84f, 0.16f, 1.0f); break;
+            case 10: current.dna.compositionSpread = clamp(0.16f + v * 0.72f, 0.16f, 0.88f); break;
+            case 11: current.dna.accentLines = clamp(0.04f + v * 0.72f, 0.04f, 0.76f); break;
+            case 71: current.dna.chaos = clamp(0.08f + v * 0.52f, 0.08f, 0.60f); break;
+            case 74: current.dna.loopFrequency = clamp(0.10f + v * 0.86f, 0.10f, 0.96f); break;
+            case 91: current.dna.surfaceNoise = clamp(0.04f + v * 0.56f, 0.04f, 0.60f); break;
+            default:
+                current.dna.twist += (v - 0.5f) * 0.08f;
+                break;
+        }
+        current.rebuild();
+        pulse("CC " + controller + " · " + value);
+        invalidate();
+    }
+
+    public void onMidiProgram(int value) {
+        current.dna.paletteIndex = Math.floorMod(value, Palette.COUNT);
+        current.rebuild();
+        pulse("PALETTE · " + Palette.get(current.dna.paletteIndex).name);
+        invalidate();
+    }
+
     @Override public boolean onTouchEvent(MotionEvent event) {
         scaleGesture.onTouchEvent(event);
         gestures.onTouchEvent(event);
@@ -171,6 +232,12 @@ public class SculptureGardenView extends View {
         if (relaxRect.contains(x, y)) {
             relaxMode = !relaxMode;
             pulse(relaxMode ? "SILENCE" : "GARDEN");
+            invalidate();
+            return;
+        }
+        if (asciiRect.contains(x, y)) {
+            asciiVolumeMode = !asciiVolumeMode;
+            pulse(asciiVolumeMode ? "ASCII VOLUME" : "CLAY VOLUME");
             invalidate();
             return;
         }
@@ -254,6 +321,9 @@ public class SculptureGardenView extends View {
 
         float t = (System.currentTimeMillis() - birth) / 1000f;
         zoom += (targetZoom - zoom) * 0.08f;
+        soundEnergy += (targetSoundEnergy - soundEnergy) * 0.18f;
+        targetSoundEnergy *= 0.90f;
+        midiControlGlow *= 0.92f;
         if (relaxMode) {
             orbitY += 0.0009f;
             orbitX += Math.sin(t * 0.17f) * 0.00045f;
@@ -345,7 +415,7 @@ public class SculptureGardenView extends View {
     private void drawSculpture(Canvas canvas, Sculpture sculpture, float cx, float cy, float scale, float alpha, float rx, float ry, float time, boolean ghost) {
         List<RenderSegment> segments = new ArrayList<>();
         float rotX = rx * 0.62f;
-        float rotY = ry + sculpture.dna.twist * 0.42f + time * (ghost ? 0.008f : 0.014f);
+        float rotY = ry + sculpture.dna.twist * 0.42f + time * (ghost ? 0.008f : 0.014f) + soundEnergy * 0.08f;
         for (Stroke stroke : sculpture.strokes) {
             for (int i = 0; i < stroke.points.size() - 1; i++) {
                 Vec3 a = stroke.points.get(i);
@@ -361,7 +431,7 @@ public class SculptureGardenView extends View {
                 seg.y2 = cy - br.y * scale * pb;
                 seg.depth = (ar.z + br.z) * 0.5f + stroke.layer * 0.05f;
                 seg.energy = stroke.energy;
-                seg.radius = Math.max(1f, stroke.radius * scale * 0.045f * (pa + pb) * 0.5f);
+                seg.radius = Math.max(1f, stroke.radius * scale * 0.045f * (pa + pb) * 0.5f * (1f + soundEnergy * (ghost ? 0.04f : 0.18f)));
                 seg.colorRole = stroke.colorRole;
                 seg.strokeType = stroke.type;
                 segments.add(seg);
@@ -373,6 +443,10 @@ public class SculptureGardenView extends View {
 
         Palette palette = museumMode ? Palette.museum() : Palette.get(sculpture.dna.paletteIndex);
         drawSculptureShadow(canvas, segments, scale, alpha, ghost);
+        if (asciiVolumeMode) {
+            drawAsciiVolume(canvas, segments, palette, alpha, ghost, time);
+            return;
+        }
 
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeCap(Paint.Cap.ROUND);
@@ -405,6 +479,57 @@ public class SculptureGardenView extends View {
             canvas.drawCircle(cx, cy, scale * 0.62f, paint);
             paint.setShader(null);
         }
+    }
+
+
+    private void drawAsciiVolume(Canvas canvas, List<RenderSegment> segments, Palette palette, float alpha, boolean ghost, float time) {
+        final char[] ramp = {'.', ':', '-', '=', '+', '*', '#', '%', '@'};
+        textPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        for (RenderSegment seg : segments) {
+            float dx = seg.x2 - seg.x1;
+            float dy = seg.y2 - seg.y1;
+            float len = (float)Math.sqrt(dx * dx + dy * dy);
+            if (len < 1f) continue;
+            float ux = dx / len;
+            float uy = dy / len;
+            float nx = -uy;
+            float ny = ux;
+            int samples = Math.max(2, Math.min(52, (int)(len / Math.max(6f, seg.radius * 0.72f))));
+            int rings = ghost ? 0 : Math.max(1, Math.min(3, (int)(seg.radius / 7f)));
+            int base = palette.color(seg.colorRole);
+            float depthLight = clamp(0.50f + seg.depth * 0.24f + soundEnergy * 0.16f, 0.12f, 1f);
+            int lit = blend(blend(base, Color.BLACK, 0.38f), blend(base, Color.WHITE, 0.52f), depthLight);
+            for (int i = 0; i <= samples; i++) {
+                float p = i / (float)samples;
+                float cx = seg.x1 + dx * p;
+                float cy = seg.y1 + dy * p;
+                float wave = (float)Math.sin(time * 4.0f + p * 7.0f + midiPitch * 8.0f) * soundEnergy * seg.radius * 0.20f;
+                for (int ring = -rings; ring <= rings; ring++) {
+                    float rr = rings == 0 ? 0f : ring / (float)rings;
+                    float off = rr * seg.radius * 0.52f + wave;
+                    float shade = clamp(depthLight + (1f - Math.abs(rr)) * 0.24f - Math.abs(rr) * 0.18f, 0f, 1f);
+                    int ci = Math.max(0, Math.min(ramp.length - 1, (int)(shade * (ramp.length - 1))));
+                    String glyph = String.valueOf(ramp[ci]);
+                    float x = cx + nx * off;
+                    float y = cy + ny * off;
+                    float size = Math.max(8f, seg.radius * (ghost ? 1.1f : 1.42f) * (1f - Math.abs(rr) * 0.10f));
+                    textPaint.setTextSize(size);
+                    if (!ghost) {
+                        textPaint.setColor(Color.argb((int)(alpha * 70), 0, 0, 0));
+                        canvas.drawText(glyph, x + seg.radius * 0.20f, y + seg.radius * 0.26f, textPaint);
+                    }
+                    textPaint.setColor(withAlpha(lit, (int)(alpha * (ghost ? 70 : 242))));
+                    canvas.drawText(glyph, x, y, textPaint);
+                    if (!ghost && ring == 0 && seg.radius > 6f) {
+                        textPaint.setTextSize(size * 0.58f);
+                        textPaint.setColor(withAlpha(blend(base, Color.WHITE, 0.78f), (int)(alpha * 92)));
+                        canvas.drawText("'", x - nx * seg.radius * 0.23f - uy * seg.radius * 0.10f, y - ny * seg.radius * 0.23f + ux * seg.radius * 0.10f, textPaint);
+                    }
+                }
+            }
+        }
+        textPaint.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.NORMAL));
     }
 
     private void drawSculptureShadow(Canvas canvas, List<RenderSegment> segments, float scale, float alpha, boolean ghost) {
@@ -444,7 +569,7 @@ public class SculptureGardenView extends View {
         textPaint.setColor(withAlpha(uiColor, 132));
         canvas.drawText(dnaLine, pad, h - pad, textPaint);
 
-        String help = "swipe gesture · pinch split · hold mass · shake mutate · volume add/collapse";
+        String help = "swipe gesture · pinch split · hold mass · MIDI notes grow · CC 1/2/7/74 sculpt";
         textPaint.setTextSize(sp(8.5f));
         textPaint.setColor(withAlpha(uiColor, 92));
         canvas.drawText(help, pad, h - pad + sp(16), textPaint);
@@ -469,6 +594,25 @@ public class SculptureGardenView extends View {
         canvas.drawText(relax, w - pad, pad + sp(29), textPaint);
         float rw = textPaint.measureText(relax) + sp(28);
         relaxRect.set(w - pad - rw, pad + sp(6), w - pad + sp(10), pad + sp(42));
+
+        String ascii = asciiVolumeMode ? "ASCII" : "CLAY";
+        canvas.drawText(ascii, w - pad, pad + sp(50), textPaint);
+        float aw = textPaint.measureText(ascii) + sp(28);
+        asciiRect.set(w - pad - aw, pad + sp(27), w - pad + sp(10), pad + sp(63));
+
+        textPaint.setTextAlign(Paint.Align.LEFT);
+        textPaint.setTextSize(sp(8.5f));
+        int midiAlpha = midiConnected ? 170 + (int)(midiControlGlow * 70f) : 86;
+        textPaint.setColor(withAlpha(uiColor, midiAlpha));
+        canvas.drawText((midiConnected ? "MIDI · " : "MIDI · ") + midiName, pad, pad + sp(48), textPaint);
+        if (soundEnergy > 0.02f) {
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(1f, sp(1.4f)));
+            paint.setColor(withAlpha(uiColor, (int)(72 + soundEnergy * 128)));
+            float meterW = w * 0.22f;
+            canvas.drawLine(pad, pad + sp(58), pad + meterW * clamp(soundEnergy, 0f, 1f), pad + sp(58), paint);
+            paint.setStyle(Paint.Style.FILL);
+        }
 
         long age = System.currentTimeMillis() - pulseAt;
         if (age < 1800L) {
