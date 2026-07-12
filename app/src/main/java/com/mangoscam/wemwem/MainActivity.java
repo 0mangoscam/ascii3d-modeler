@@ -3,17 +3,24 @@ package com.mangoscam.wemwem;
 import android.Manifest;
 import android.app.Activity;
 import android.content.pm.PackageManager;
+import android.media.midi.MidiDevice;
 import android.media.midi.MidiDeviceInfo;
 import android.media.midi.MidiInputPort;
 import android.media.midi.MidiManager;
+import android.media.midi.MidiOutputPort;
+import android.media.midi.MidiReceiver;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
+import java.io.IOException;
+import java.util.ArrayList;
 
 public class MainActivity extends Activity {
     private WemwemView view;
     private MidiManager midiManager;
+    private final ArrayList<MidiDevice> openMidiDevices = new ArrayList<>();
+    private final ArrayList<MidiOutputPort> openMidiPorts = new ArrayList<>();
 
     @Override
     protected void onCreate(Bundle bundle) {
@@ -31,15 +38,74 @@ public class MainActivity extends Activity {
     private void setupMidiDiscovery() {
         midiManager = (MidiManager) getSystemService(MIDI_SERVICE);
         if (midiManager != null) {
-            view.setMidiStatus("MIDI · READY");
             MidiDeviceInfo[] devices = midiManager.getDevices();
-            if (devices.length > 0) view.setMidiStatus("MIDI · " + devices.length + " DEVICE(S)");
+            view.setMidiStatus(devices.length > 0 ? "MIDI · " + devices.length + " DEVICE(S)" : "MIDI · READY");
+            for (MidiDeviceInfo info : devices) openMidiDevice(info);
             midiManager.registerDeviceCallback(new MidiManager.DeviceCallback() {
-                @Override public void onDeviceAdded(MidiDeviceInfo info) { view.setMidiStatus("MIDI · CONNECTED"); }
-                @Override public void onDeviceRemoved(MidiDeviceInfo info) { view.setMidiStatus("MIDI · REMOVED"); }
+                @Override public void onDeviceAdded(MidiDeviceInfo info) {
+                    view.setMidiStatus("MIDI · CONNECTED");
+                    openMidiDevice(info);
+                }
+                @Override public void onDeviceRemoved(MidiDeviceInfo info) {
+                    view.setMidiStatus("MIDI · REMOVED");
+                }
             }, null);
         } else {
             view.setMidiStatus("MIDI · UNAVAILABLE");
+        }
+    }
+
+    private void openMidiDevice(MidiDeviceInfo info) {
+        if (midiManager == null) return;
+        midiManager.openDevice(info, device -> {
+            if (device == null) return;
+            openMidiDevices.add(device);
+            int outputCount = info.getOutputPortCount();
+            if (outputCount <= 0) {
+                view.setMidiStatus("MIDI · DEVICE HAS NO OUT");
+                return;
+            }
+            MidiOutputPort outputPort = device.openOutputPort(0);
+            if (outputPort == null) return;
+            openMidiPorts.add(outputPort);
+            try {
+                outputPort.connect(new MidiReceiver() {
+                    @Override
+                    public void onSend(byte[] msg, int offset, int count, long timestamp) throws IOException {
+                        parseMidi(msg, offset, count);
+                    }
+                });
+                view.setMidiStatus("MIDI · PLAYING FIELD");
+            } catch (IOException e) {
+                view.setMidiStatus("MIDI · CONNECT ERROR");
+            }
+        }, null);
+    }
+
+    private void parseMidi(byte[] msg, int offset, int count) {
+        int end = offset + count;
+        for (int i = offset; i < end; ) {
+            int status = msg[i] & 0xff;
+            if (status < 0x80 || i + 2 >= end) break;
+            int type = status & 0xf0;
+            int d1 = msg[i + 1] & 0x7f;
+            int d2 = msg[i + 2] & 0x7f;
+            if (type == 0x90) {
+                if (d2 > 0) view.midiNote(d1, d2); else view.midiNoteOff(d1);
+                i += 3;
+            } else if (type == 0x80) {
+                view.midiNoteOff(d1);
+                i += 3;
+            } else if (type == 0xB0) {
+                view.midiControl(d1, d2);
+                i += 3;
+            } else if (type == 0xE0) {
+                int value14 = (d2 << 7) | d1;
+                view.midiPitchBend((value14 - 8192) / 8192f);
+                i += 3;
+            } else {
+                i += 3;
+            }
         }
     }
 
@@ -53,6 +119,11 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() { super.onResume(); view.resume(); }
     @Override protected void onPause() { view.pause(); super.onPause(); }
+    @Override protected void onDestroy() {
+        for (MidiOutputPort p : openMidiPorts) try { p.close(); } catch (Exception ignored) {}
+        for (MidiDevice d : openMidiDevices) try { d.close(); } catch (Exception ignored) {}
+        super.onDestroy();
+    }
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
@@ -61,6 +132,13 @@ public class MainActivity extends Activity {
         int note = keyToNote(keyCode);
         if (note >= 0) { view.midiNote(note, 110); return true; }
         return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        int note = keyToNote(keyCode);
+        if (note >= 0) { view.midiNoteOff(note); return true; }
+        return super.onKeyUp(keyCode, event);
     }
 
     private int keyToNote(int keyCode) {

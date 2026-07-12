@@ -8,8 +8,8 @@ android {
         applicationId 'com.mangoscam.wemwem'
         minSdk 26
         targetSdk 35
-        versionCode 10
-        versionName '1.0.0-from-zero'
+        versionCode 12
+        versionName '1.2.0-gaussian-particles'
     }
 
     compileOptions {
