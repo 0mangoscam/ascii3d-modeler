@@ -3,15 +3,15 @@ plugins {
 }
 
 android {
-    namespace 'com.mangoscam.sculpturegarden'
+    namespace 'com.mangoscam.wemwem'
     compileSdk 35
 
     defaultConfig {
-        applicationId 'com.mangoscam.sculpturegarden'
+        applicationId 'com.mangoscam.wemwem'
         minSdk 26
         targetSdk 35
-        versionCode 5
-        versionName '0.5.0'
+        versionCode 10
+        versionName '1.0.0-alpha' 
     }
 
     compileOptions {

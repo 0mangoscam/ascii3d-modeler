@@ -1,4 +1,4 @@
-name: Build debug APK
+name: Build WEMWEM debug APK
 
 on:
   push:

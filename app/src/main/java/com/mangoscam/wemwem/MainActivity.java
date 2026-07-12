@@ -1,4 +1,4 @@
-package com.mangoscam.sculpturegarden;
+package com.mangoscam.wemwem;
 
 import android.Manifest;
 import android.app.Activity;
@@ -25,14 +25,14 @@ import android.view.WindowManager;
 
 import java.io.IOException;
 
-public class MainActivity extends Activity implements SensorEventListener, AudioGrowthEngine.Listener {
-    private SculptureGardenView gardenView;
+public class MainActivity extends Activity implements SensorEventListener, WemwemAudioEngine.Listener {
+    private WemwemView wemView;
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private MidiManager midiManager;
     private MidiDevice connectedMidiDevice;
     private MidiOutputPort connectedOutputPort;
-    private AudioGrowthEngine audioGrowthEngine;
+    private WemwemAudioEngine audioGrowthEngine;
     private long lastShakeTime = 0L;
     private float lastX;
     private float lastY;
@@ -54,7 +54,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
 
         @Override
         public void onDeviceRemoved(MidiDeviceInfo device) {
-            if (gardenView != null) gardenView.setMidiConnected(false, "MIDI REMOVED");
+            if (wemView != null) wemView.setMidiConnected(false, "MIDI REMOVED");
         }
     };
 
@@ -64,11 +64,11 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
 
-        gardenView = new SculptureGardenView(this);
-        setContentView(gardenView);
+        wemView = new WemwemView(this);
+        setContentView(wemView);
         enterImmersiveMode();
 
-        audioGrowthEngine = new AudioGrowthEngine(this);
+        audioGrowthEngine = new WemwemAudioEngine(this);
         ensureAudioGrowthPermission();
 
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
@@ -81,7 +81,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
             midiManager.registerDeviceCallback(midiCallback, new Handler(Looper.getMainLooper()));
             scanMidiDevices();
         } else {
-            gardenView.setMidiConnected(false, "MIDI NOT AVAILABLE");
+            wemView.setMidiConnected(false, "MIDI NOT AVAILABLE");
         }
     }
 
@@ -94,7 +94,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
         }
         if (midiManager != null) scanMidiDevices();
         if (hasAudioPermission() && audioGrowthEngine != null && !audioGrowthEngine.isRunning()) audioGrowthEngine.start();
-        gardenView.resume();
+        wemView.resume();
     }
 
     @Override
@@ -104,7 +104,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
             sensorManager.unregisterListener(this);
         }
         if (audioGrowthEngine != null) audioGrowthEngine.stop();
-        gardenView.pause();
+        wemView.pause();
     }
 
     @Override
@@ -140,20 +140,20 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
             boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
             if (granted && audioGrowthEngine != null) {
                 audioGrowthEngine.start();
-            } else if (gardenView != null) {
-                gardenView.setMicListening(false, "MIC PERMISSION NEEDED");
+            } else if (wemView != null) {
+                wemView.setMicListening(false, "MIC PERMISSION NEEDED");
             }
         }
     }
 
     @Override
     public void onAudioFrame(float rms, float bass, float mids, float highs, float onset, float sustain, float silence) {
-        if (gardenView != null) gardenView.onAudioFrame(rms, bass, mids, highs, onset, sustain, silence);
+        if (wemView != null) wemView.onAudioFrame(rms, bass, mids, highs, onset, sustain, silence);
     }
 
     @Override
     public void onAudioState(boolean listening, String label) {
-        if (gardenView != null) gardenView.setMicListening(listening, label);
+        if (wemView != null) wemView.setMicListening(listening, label);
     }
 
     private void enterImmersiveMode() {
@@ -184,7 +184,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
                 return;
             }
         }
-        if (gardenView != null) gardenView.setMidiConnected(false, "MIDI WAITING");
+        if (wemView != null) wemView.setMidiConnected(false, "MIDI WAITING");
     }
 
     private boolean hasOutputPort(MidiDeviceInfo info) {
@@ -200,7 +200,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
             @Override
             public void onDeviceOpened(MidiDevice device) {
                 if (device == null) {
-                    if (gardenView != null) gardenView.setMidiConnected(false, "MIDI OPEN FAILED");
+                    if (wemView != null) wemView.setMidiConnected(false, "MIDI OPEN FAILED");
                     return;
                 }
                 connectedMidiDevice = device;
@@ -211,7 +211,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
                             connectedOutputPort.connect(midiReceiver);
                             String name = info.getProperties().getString(MidiDeviceInfo.PROPERTY_NAME);
                             if (name == null || name.trim().isEmpty()) name = "MIDI DEVICE";
-                            if (gardenView != null) gardenView.setMidiConnected(true, name);
+                            if (wemView != null) wemView.setMidiConnected(true, name);
                         }
                         break;
                     }
@@ -240,18 +240,18 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
             if (command == 0x90 && i + 2 < end) {
                 int note = data[i + 1] & 0x7F;
                 int velocity = data[i + 2] & 0x7F;
-                if (velocity > 0 && gardenView != null) gardenView.onMidiNote(note, velocity);
+                if (velocity > 0 && wemView != null) wemView.onMidiNote(note, velocity);
                 i += 3;
             } else if (command == 0x80 && i + 2 < end) {
                 i += 3;
             } else if (command == 0xB0 && i + 2 < end) {
                 int controller = data[i + 1] & 0x7F;
                 int value = data[i + 2] & 0x7F;
-                if (gardenView != null) gardenView.onMidiControl(controller, value);
+                if (wemView != null) wemView.onMidiControl(controller, value);
                 i += 3;
             } else if ((command == 0xC0 || command == 0xD0) && i + 1 < end) {
                 int value = data[i + 1] & 0x7F;
-                if (gardenView != null) gardenView.onMidiProgram(value);
+                if (wemView != null) wemView.onMidiProgram(value);
                 i += 2;
             } else {
                 i++;
@@ -263,15 +263,41 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
     public boolean dispatchKeyEvent(KeyEvent event) {
         if (event.getAction() == KeyEvent.ACTION_DOWN) {
             if (event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_UP) {
-                gardenView.growNewBranch();
+                wemView.growNewBranch();
                 return true;
             }
             if (event.getKeyCode() == KeyEvent.KEYCODE_VOLUME_DOWN) {
-                gardenView.collapseBranch();
+                wemView.collapseBranch();
+                return true;
+            }
+            int note = computerKeyboardToMidi(event.getKeyCode());
+            if (note >= 0) {
+                wemView.onMidiNote(note, 104);
                 return true;
             }
         }
         return super.dispatchKeyEvent(event);
+    }
+
+    private int computerKeyboardToMidi(int keyCode) {
+        // Android hardware keyboard / Chromebook / desktop mapping.
+        // White keys: A S D F G H J K, black-ish keys: W E T Y U.
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_A: return 48;
+            case KeyEvent.KEYCODE_W: return 49;
+            case KeyEvent.KEYCODE_S: return 50;
+            case KeyEvent.KEYCODE_E: return 51;
+            case KeyEvent.KEYCODE_D: return 52;
+            case KeyEvent.KEYCODE_F: return 53;
+            case KeyEvent.KEYCODE_T: return 54;
+            case KeyEvent.KEYCODE_G: return 55;
+            case KeyEvent.KEYCODE_Y: return 56;
+            case KeyEvent.KEYCODE_H: return 57;
+            case KeyEvent.KEYCODE_U: return 58;
+            case KeyEvent.KEYCODE_J: return 59;
+            case KeyEvent.KEYCODE_K: return 60;
+            default: return -1;
+        }
     }
 
     @Override
@@ -301,7 +327,7 @@ public class MainActivity extends Activity implements SensorEventListener, Audio
         long now = System.currentTimeMillis();
         if (force > 135f && now - lastShakeTime > 900L) {
             lastShakeTime = now;
-            gardenView.mutateFromShake();
+            wemView.mutateFromShake();
         }
     }
 

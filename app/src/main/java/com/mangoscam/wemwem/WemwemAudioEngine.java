@@ -1,4 +1,4 @@
-package com.mangoscam.sculpturegarden;
+package com.mangoscam.wemwem;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;
@@ -7,7 +7,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 
-public class AudioGrowthEngine {
+public class WemwemAudioEngine {
     public interface Listener {
         void onAudioFrame(float rms, float bass, float mids, float highs, float onset, float sustain, float silence);
         void onAudioState(boolean listening, String label);
@@ -28,7 +28,7 @@ public class AudioGrowthEngine {
     private float previousEnergy = 0f;
     private float sustainMemory = 0f;
 
-    public AudioGrowthEngine(Listener listener) {
+    public WemwemAudioEngine(Listener listener) {
         this.listener = listener;
     }
 
@@ -39,7 +39,7 @@ public class AudioGrowthEngine {
         running = true;
         thread = new Thread(new Runnable() {
             @Override public void run() { captureLoop(); }
-        }, "SculptureGarden-AudioGrowth");
+        }, "WEMWEM-AudioGrowth");
         thread.start();
     }
 

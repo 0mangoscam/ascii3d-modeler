@@ -1,4 +1,4 @@
-package com.mangoscam.sculpturegarden;
+package com.mangoscam.wemwem;
 
 import android.content.Context;
 import android.graphics.BlurMaskFilter;
@@ -23,7 +23,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Random;
 
-public class SculptureGardenView extends View {
+public class WemwemView extends View {
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
     private final Paint softPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
     private final Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.SUBPIXEL_TEXT_FLAG);
@@ -77,10 +77,10 @@ public class SculptureGardenView extends View {
     private String micName = "MIC WAITING";
     private long birth = System.currentTimeMillis();
 
-    private String pulseText = "MANGOSCAM DNA";
+    private String pulseText = "WEM DNA";
     private long pulseAt = System.currentTimeMillis();
 
-    public SculptureGardenView(Context context) {
+    public WemwemView(Context context) {
         super(context);
         setFocusable(true);
         setFocusableInTouchMode(true);
@@ -102,7 +102,7 @@ public class SculptureGardenView extends View {
             }
             @Override public boolean onDoubleTap(MotionEvent e) {
                 relaxMode = !relaxMode;
-                pulse(relaxMode ? "SILENT POSTER" : "GARDEN");
+                pulse(relaxMode ? "SILENT TERMINAL" : "WEMWEM");
                 invalidate();
                 return true;
             }
@@ -290,16 +290,17 @@ public class SculptureGardenView extends View {
             invalidate();
             return;
         }
+        if (triggerVirtualPiano(x, y)) return;
         if (evolveRect.contains(x, y)) { evolve(); return; }
         if (museumRect.contains(x, y)) {
             museumMode = !museumMode;
-            pulse(museumMode ? "WHITE MUSEUM" : Palette.get(current.dna.paletteIndex).name);
+            pulse(museumMode ? "WHITE TERMINAL" : Palette.get(current.dna.paletteIndex).name);
             invalidate();
             return;
         }
         if (relaxRect.contains(x, y)) {
             relaxMode = !relaxMode;
-            pulse(relaxMode ? "SILENCE" : "GARDEN");
+            pulse(relaxMode ? "SILENCE" : "WEMWEM");
             invalidate();
             return;
         }
@@ -310,17 +311,29 @@ public class SculptureGardenView extends View {
         }
         if (asciiRect.contains(x, y)) {
             asciiVolumeMode = !asciiVolumeMode;
-            pulse(asciiVolumeMode ? "ASCII VOLUME" : "CLAY VOLUME");
+            pulse(asciiVolumeMode ? "ASCII MATTER" : "GHOST CLAY");
             invalidate();
             return;
         }
         if (dnaRect.contains(x, y)) {
             artDnaMode = !artDnaMode;
-            pulse(artDnaMode ? "MANGOSCAM DNA" : "QUIET DNA");
+            pulse(artDnaMode ? "WEM DNA" : "QUIET DNA");
             current.dna.applyMangoscamBias(artDnaMode ? 1f : 0.55f);
             current.rebuild();
             invalidate();
         }
+    }
+
+    private boolean triggerVirtualPiano(float x, float y) {
+        float w = getWidth();
+        float h = getHeight();
+        if (w <= 0 || h <= 0) return false;
+        if (y < h * 0.885f || x > w * 0.72f) return false;
+        int key = (int)clamp((x / (w * 0.72f)) * 13f, 0f, 12f);
+        int[] scale = {0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20};
+        onMidiNote(48 + scale[Math.min(key, scale.length - 1)], 96);
+        pulse("VIRTUAL PIANO · " + key);
+        return true;
     }
 
     private int hitDescendant(float x, float y) {
@@ -787,12 +800,12 @@ public class SculptureGardenView extends View {
         textPaint.setTextAlign(Paint.Align.LEFT);
         textPaint.setTextSize(sp(12));
         textPaint.setColor(withAlpha(uiColor, 178));
-        canvas.drawText("SCULPTURE GARDEN", pad, pad + sp(8), textPaint);
+        canvas.drawText("WEMWEM", pad, pad + sp(8), textPaint);
 
         textPaint.setTextSize(sp(9));
         textPaint.setColor(withAlpha(uiColor, 118));
-        canvas.drawText("ART DNA · " + Palette.get(current.dna.paletteIndex).name + " · " + current.archetypeName(), pad, pad + sp(27), textPaint);
-        float dnaW = textPaint.measureText("ART DNA · " + Palette.get(current.dna.paletteIndex).name) + sp(22);
+        canvas.drawText("SOUND DNA · " + Palette.get(current.dna.paletteIndex).name + " · " + current.archetypeName(), pad, pad + sp(27), textPaint);
+        float dnaW = textPaint.measureText("SOUND DNA · " + Palette.get(current.dna.paletteIndex).name) + sp(22);
         dnaRect.set(pad - sp(8), pad + sp(8), pad + dnaW, pad + sp(38));
 
         String dnaLine = "GEN " + current.generation + " · " + current.materialName() + " · DNA " + current.dna.shortCode();
@@ -800,7 +813,7 @@ public class SculptureGardenView extends View {
         textPaint.setColor(withAlpha(uiColor, 132));
         canvas.drawText(dnaLine, pad, h - pad, textPaint);
 
-        String help = "sound births particles · particles condense into ASCII volume · MIDI steers the field";
+        String help = "sound births ASCII particles · silence erodes them · MIDI plays the field";
         textPaint.setTextSize(sp(8.5f));
         textPaint.setColor(withAlpha(uiColor, 92));
         canvas.drawText(help, pad, h - pad + sp(16), textPaint);
@@ -841,6 +854,7 @@ public class SculptureGardenView extends View {
         canvas.drawText(listen, pad, pad + sp(64), textPaint);
         listenRect.set(pad - sp(8), pad + sp(47), pad + textPaint.measureText(listen) + sp(16), pad + sp(73));
         drawAudioMeters(canvas, pad, pad + sp(78), w * 0.24f, uiColor);
+        drawVirtualPiano(canvas, pad, h - pad - sp(52), w * 0.70f, sp(26), uiColor);
 
         long age = System.currentTimeMillis() - pulseAt;
         if (age < 1800L) {
@@ -849,6 +863,24 @@ public class SculptureGardenView extends View {
         }
     }
 
+
+    private void drawVirtualPiano(Canvas canvas, float x, float y, float width, float height, int uiColor) {
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(1f);
+        int keys = 13;
+        float kw = width / keys;
+        for (int i = 0; i < keys; i++) {
+            float energy = (i % 3 == 0 ? micBass : i % 3 == 1 ? micMids : micHighs);
+            paint.setColor(withAlpha(uiColor, 34 + (int)(energy * 70f)));
+            canvas.drawRect(x + i * kw, y, x + (i + 1) * kw - 2f, y + height, paint);
+            textPaint.setTextAlign(Paint.Align.CENTER);
+            textPaint.setTextSize(sp(7));
+            textPaint.setColor(withAlpha(uiColor, 70));
+            canvas.drawText(i == 0 ? "A" : i == 1 ? "W" : i == 2 ? "S" : i == 3 ? "E" : i == 4 ? "D" : i == 5 ? "F" : i == 6 ? "T" : i == 7 ? "G" : i == 8 ? "Y" : i == 9 ? "H" : i == 10 ? "U" : i == 11 ? "J" : "K", x + i * kw + kw * 0.5f, y + height + sp(10), textPaint);
+        }
+        paint.setStyle(Paint.Style.FILL);
+        textPaint.setTextAlign(Paint.Align.LEFT);
+    }
 
     private void drawAudioMeters(Canvas canvas, float x, float y, float width, int uiColor) {
         paint.setStyle(Paint.Style.STROKE);
@@ -1433,10 +1465,10 @@ public class SculptureGardenView extends View {
                 case 4: return new Palette("PRIMARY BLUE", rgb(46,99,208), rgb(246,242,234), rgb(216,66,52), rgb(225,201,74), rgb(105,168,102), rgb(231,178,193), rgb(17,17,17));
                 case 5: return new Palette("DUST PINK", rgb(216,142,160), rgb(245,234,216), rgb(240,209,79), rgb(193,59,51), rgb(79,154,113), rgb(94,126,208), rgb(17,17,17));
                 case 6: return new Palette("STONE WHITE", rgb(241,238,231), rgb(224,198,61), rgb(94,126,208), rgb(201,69,58), rgb(22,22,22), rgb(245,241,234), rgb(17,17,17));
-                default: return new Palette("RED ROOM", rgb(217,42,30), rgb(243,237,228), rgb(90,119,200), rgb(244,182,194), rgb(167,200,109), rgb(35,35,35), rgb(17,17,17));
+                default: return new Palette("BLACK TERMINAL", rgb(0,0,0), rgb(210,255,218), rgb(69,255,139), rgb(170,220,255), rgb(255,255,255), rgb(88,180,120), rgb(18,18,18));
             }
         }
-        static Palette museum() { return new Palette("WHITE MUSEUM", rgb(238,236,230), rgb(236,232,222), rgb(105,120,165), rgb(187,70,59), rgb(30,30,28), rgb(198,178,71), rgb(17,17,17)); }
+        static Palette museum() { return new Palette("WHITE TERMINAL", rgb(238,236,230), rgb(236,232,222), rgb(105,120,165), rgb(187,70,59), rgb(30,30,28), rgb(198,178,71), rgb(17,17,17)); }
         private static int rgb(int r, int g, int b) { return Color.rgb(r, g, b); }
     }
 
