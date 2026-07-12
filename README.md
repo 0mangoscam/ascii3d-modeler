@@ -1,47 +1,68 @@
-# Sculpture Garden
+# Sculpture Garden V0.4 — Sound Growth
 
-A premium Android instrument for cultivating abstract sculptures.
+Premium Android art instrument for cultivating ASCII sculptures with 3D volume.
 
-## V0.3 — ASCII Volume + MIDI
+## Concept
 
-This version moves Sculpture Garden closer to a sonic art instrument:
+Sculpture Garden is not a CAD app and not a classic sculpting tool. It is a living audiovisual garden where abstract sculptures are cultivated from sound.
 
-- Sculptures render as volumetric ASCII bodies instead of normal clay strokes.
-- The ASCII characters behave like shaded 3D mass, not flat text.
-- MIDI controllers can shape the organism in real time.
-- MIDI notes inject sonic energy, rhythm, twist and new gestures.
-- MIDI CC controls map to DNA parameters.
-- The previous Mangoscam DNA visual language remains active.
+The app now uses **Organic Sound Growth**:
 
-## MIDI Mapping
+- Microphone input feeds the sculpture in real time.
+- Bass creates mass and thickness.
+- Mids grow the main soft tubular structure.
+- Highs add root-lines, coils and glyph accents.
+- Onsets create biological sprout events.
+- Sustain bends and cultivates existing forms.
+- Silence stabilizes and calms the organism.
 
-Connect a USB MIDI controller through USB-C / OTG, then open the app.
+## Visual DNA
 
-Recommended controls:
+The visual language is based on mangoscam / Brian Novillo's abstract soft-form aesthetic:
 
-- Notes: pulse, grow and bend the current organism.
-- Program Change: switch palette.
-- CC 1: curvature.
-- CC 2: thickness.
-- CC 7: growth.
-- CC 10: composition spread.
-- CC 11: accent lines.
-- CC 71: chaos.
-- CC 74: loop frequency.
-- CC 91: surface noise.
+- rounded ASCII volume
+- tubes
+- loops
+- arches
+- coils
+- soft glyphs
+- root-like fine lines
+- floating compositions
+- flat canvas backgrounds
+- curated color families
 
-## Touch Mapping
+## Interaction
 
-- Swipe: rotate and add gestures.
-- Pinch: split structure.
-- Long press: increase mass.
-- Shake: mutate.
-- Volume Up: add gesture.
-- Volume Down: simplify.
-- Double tap: relax mode.
-- ASCII / CLAY: toggle visual render mode.
+- Sound grows the sculpture organically.
+- Swipe rotates and adds gesture.
+- Pinch splits structure.
+- Long press increases mass.
+- Shake mutates.
+- Volume Up adds a new gesture.
+- Volume Down simplifies.
+- MIDI notes still grow and pulse the organism.
+- MIDI CC can steer DNA parameters.
+
+## Audio Mapping
+
+```text
+RMS    -> global organism energy
+Bass   -> mass, thickness, capsules
+Mids   -> structure, tubes, arcs, loops
+Highs  -> accents, root-lines, coils
+Onset  -> sprout events
+Sustain-> slow cultivation
+Silence-> calm / stabilization
+```
 
 ## Build
 
-GitHub Actions builds the debug APK automatically on push.
+The GitHub Actions workflow builds a debug APK automatically.
 
+```bash
+gradle :app:assembleDebug --no-daemon
+```
+
+## Version
+
+V0.4.0 — ASCII volume + microphone-driven organic sound growth + MIDI steering.

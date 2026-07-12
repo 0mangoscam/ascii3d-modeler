@@ -34,6 +34,7 @@ public class SculptureGardenView extends View {
     private final RectF relaxRect = new RectF();
     private final RectF dnaRect = new RectF();
     private final RectF asciiRect = new RectF();
+    private final RectF listenRect = new RectF();
 
     private Sculpture current;
     private final List<Sculpture> garden = new ArrayList<>();
@@ -44,6 +45,7 @@ public class SculptureGardenView extends View {
     private boolean artDnaMode = true;
     private boolean asciiVolumeMode = true;
     private boolean midiConnected = false;
+    private boolean micListening = false;
     private boolean running = true;
     private boolean splitDuringPinch = false;
 
@@ -56,7 +58,17 @@ public class SculptureGardenView extends View {
     private float targetSoundEnergy = 0f;
     private float midiPitch = 0.5f;
     private float midiControlGlow = 0f;
+    private float micRms = 0f;
+    private float micBass = 0f;
+    private float micMids = 0f;
+    private float micHighs = 0f;
+    private float micOnset = 0f;
+    private float micSustain = 0f;
+    private float micSilence = 1f;
+    private long lastAudioGrowthAt = 0L;
+    private long lastAudioSproutAt = 0L;
     private String midiName = "MIDI WAITING";
+    private String micName = "MIC WAITING";
     private long birth = System.currentTimeMillis();
 
     private String pulseText = "MANGOSCAM DNA";
@@ -150,6 +162,54 @@ public class SculptureGardenView extends View {
         invalidate();
     }
 
+
+    public void setMicListening(boolean listening, String label) {
+        micListening = listening;
+        micName = label == null ? (listening ? "LISTENING" : "MIC WAITING") : label;
+        pulse(micName);
+        invalidate();
+    }
+
+    public void onAudioFrame(float rms, float bass, float mids, float highs, float onset, float sustain, float silence) {
+        if (choosingDescendant) return;
+        micRms = smoothValue(micRms, rms, 0.24f);
+        micBass = smoothValue(micBass, bass, 0.20f);
+        micMids = smoothValue(micMids, mids, 0.20f);
+        micHighs = smoothValue(micHighs, highs, 0.22f);
+        micOnset = Math.max(onset, micOnset * 0.74f);
+        micSustain = smoothValue(micSustain, sustain, 0.12f);
+        micSilence = smoothValue(micSilence, silence, 0.18f);
+
+        float livingEnergy = clamp(micRms * 0.52f + micBass * 0.26f + micMids * 0.15f + micHighs * 0.07f, 0f, 1f);
+        targetSoundEnergy = Math.max(targetSoundEnergy, livingEnergy * 1.15f);
+
+        long now = System.currentTimeMillis();
+        if (micOnset > 0.34f && livingEnergy > 0.09f && now - lastAudioSproutAt > 330L) {
+            lastAudioSproutAt = now;
+            lastAudioGrowthAt = now;
+            current.growFromSound(micBass, micMids, micHighs, micOnset, micSustain);
+            pulse(audioEventName(micBass, micMids, micHighs, micOnset));
+        } else if (livingEnergy > 0.055f && now - lastAudioGrowthAt > 190L) {
+            lastAudioGrowthAt = now;
+            current.cultivateFromSound(micBass, micMids, micHighs, micSustain);
+        } else if (micSilence > 0.72f && now - lastAudioGrowthAt > 620L) {
+            lastAudioGrowthAt = now;
+            current.restFromSilence(micSilence);
+        }
+        invalidate();
+    }
+
+    private String audioEventName(float bass, float mids, float highs, float onset) {
+        if (bass > mids && bass > highs) return "BASS MASS SPROUT";
+        if (highs > bass && highs > mids) return "HIGH ROOT ACCENT";
+        if (onset > 0.62f) return "AUDIO BLOOM";
+        return "SOUND GROWTH";
+    }
+
+    private static float smoothValue(float oldValue, float newValue, float amount) {
+        return oldValue + (newValue - oldValue) * amount;
+    }
+
     public void onMidiNote(int note, int velocity) {
         if (choosingDescendant) return;
         float v = clamp(velocity / 127f, 0f, 1f);
@@ -232,6 +292,11 @@ public class SculptureGardenView extends View {
         if (relaxRect.contains(x, y)) {
             relaxMode = !relaxMode;
             pulse(relaxMode ? "SILENCE" : "GARDEN");
+            invalidate();
+            return;
+        }
+        if (listenRect.contains(x, y)) {
+            pulse(micListening ? "AUDIO GROWTH ACTIVE" : micName);
             invalidate();
             return;
         }
@@ -324,6 +389,7 @@ public class SculptureGardenView extends View {
         soundEnergy += (targetSoundEnergy - soundEnergy) * 0.18f;
         targetSoundEnergy *= 0.90f;
         midiControlGlow *= 0.92f;
+        micOnset *= 0.88f;
         if (relaxMode) {
             orbitY += 0.0009f;
             orbitX += Math.sin(t * 0.17f) * 0.00045f;
@@ -498,13 +564,13 @@ public class SculptureGardenView extends View {
             int samples = Math.max(2, Math.min(52, (int)(len / Math.max(6f, seg.radius * 0.72f))));
             int rings = ghost ? 0 : Math.max(1, Math.min(3, (int)(seg.radius / 7f)));
             int base = palette.color(seg.colorRole);
-            float depthLight = clamp(0.50f + seg.depth * 0.24f + soundEnergy * 0.16f, 0.12f, 1f);
+            float depthLight = clamp(0.50f + seg.depth * 0.24f + soundEnergy * 0.16f + micHighs * 0.10f, 0.12f, 1f);
             int lit = blend(blend(base, Color.BLACK, 0.38f), blend(base, Color.WHITE, 0.52f), depthLight);
             for (int i = 0; i <= samples; i++) {
                 float p = i / (float)samples;
                 float cx = seg.x1 + dx * p;
                 float cy = seg.y1 + dy * p;
-                float wave = (float)Math.sin(time * 4.0f + p * 7.0f + midiPitch * 8.0f) * soundEnergy * seg.radius * 0.20f;
+                float wave = (float)Math.sin(time * 4.0f + p * 7.0f + midiPitch * 8.0f) * (soundEnergy + micOnset * 0.45f) * seg.radius * 0.20f;
                 for (int ring = -rings; ring <= rings; ring++) {
                     float rr = rings == 0 ? 0f : ring / (float)rings;
                     float off = rr * seg.radius * 0.52f + wave;
@@ -569,7 +635,7 @@ public class SculptureGardenView extends View {
         textPaint.setColor(withAlpha(uiColor, 132));
         canvas.drawText(dnaLine, pad, h - pad, textPaint);
 
-        String help = "swipe gesture · pinch split · hold mass · MIDI notes grow · CC 1/2/7/74 sculpt";
+        String help = "sound grows the organism · bass mass · mids structure · highs roots · MIDI can steer";
         textPaint.setTextSize(sp(8.5f));
         textPaint.setColor(withAlpha(uiColor, 92));
         canvas.drawText(help, pad, h - pad + sp(16), textPaint);
@@ -605,20 +671,40 @@ public class SculptureGardenView extends View {
         int midiAlpha = midiConnected ? 170 + (int)(midiControlGlow * 70f) : 86;
         textPaint.setColor(withAlpha(uiColor, midiAlpha));
         canvas.drawText((midiConnected ? "MIDI · " : "MIDI · ") + midiName, pad, pad + sp(48), textPaint);
-        if (soundEnergy > 0.02f) {
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeWidth(Math.max(1f, sp(1.4f)));
-            paint.setColor(withAlpha(uiColor, (int)(72 + soundEnergy * 128)));
-            float meterW = w * 0.22f;
-            canvas.drawLine(pad, pad + sp(58), pad + meterW * clamp(soundEnergy, 0f, 1f), pad + sp(58), paint);
-            paint.setStyle(Paint.Style.FILL);
-        }
+        String listen = (micListening ? "LISTEN · " : "MIC · ") + micName;
+        textPaint.setColor(withAlpha(uiColor, micListening ? 170 : 92));
+        canvas.drawText(listen, pad, pad + sp(64), textPaint);
+        listenRect.set(pad - sp(8), pad + sp(47), pad + textPaint.measureText(listen) + sp(16), pad + sp(73));
+        drawAudioMeters(canvas, pad, pad + sp(78), w * 0.24f, uiColor);
 
         long age = System.currentTimeMillis() - pulseAt;
         if (age < 1800L) {
             float a = 1f - age / 1800f;
             drawTextCentered(canvas, pulseText, w * 0.5f, h * 0.84f, 12f, a * 0.66f);
         }
+    }
+
+
+    private void drawAudioMeters(Canvas canvas, float x, float y, float width, int uiColor) {
+        paint.setStyle(Paint.Style.STROKE);
+        paint.setStrokeWidth(Math.max(1f, sp(1.2f)));
+        float gap = sp(4f);
+        float line = width;
+        int alpha = micListening ? 82 : 36;
+        paint.setColor(withAlpha(uiColor, alpha));
+        canvas.drawLine(x, y, x + line, y, paint);
+        canvas.drawLine(x, y + gap, x + line, y + gap, paint);
+        canvas.drawLine(x, y + gap * 2f, x + line, y + gap * 2f, paint);
+        paint.setColor(withAlpha(uiColor, micListening ? 182 : 74));
+        canvas.drawLine(x, y, x + line * clamp(micBass, 0f, 1f), y, paint);
+        canvas.drawLine(x, y + gap, x + line * clamp(micMids, 0f, 1f), y + gap, paint);
+        canvas.drawLine(x, y + gap * 2f, x + line * clamp(micHighs, 0f, 1f), y + gap * 2f, paint);
+        if (micOnset > 0.04f) {
+            paint.setStyle(Paint.Style.FILL);
+            paint.setColor(withAlpha(uiColor, (int)(80 + micOnset * 150)));
+            canvas.drawCircle(x + line + sp(8), y + gap, sp(2.2f + micOnset * 4.2f), paint);
+        }
+        paint.setStyle(Paint.Style.FILL);
     }
 
     private void drawRelaxWhisper(Canvas canvas, float w, float h, float t) {
@@ -740,6 +826,40 @@ public class SculptureGardenView extends View {
             dna.growth = clamp(dna.growth + 0.04f * influence, 0.12f, 1f);
             dna.seed += 83L + (long)(influence * 777f) + strokes.size() * 19L;
             dna.accentLines = clamp(dna.accentLines + 0.018f * influence, 0.06f, 0.76f);
+            rebuild();
+        }
+
+
+        void growFromSound(float bass, float mids, float highs, float onset, float sustain) {
+            float energy = clamp(bass * 0.36f + mids * 0.34f + highs * 0.18f + onset * 0.22f, 0f, 1f);
+            dna.seed += 157L + (long)(energy * 2200f) + (long)(System.currentTimeMillis() % 997L);
+            dna.growth = clamp(dna.growth + 0.035f + energy * 0.045f, 0.14f, 1.0f);
+            dna.thickness = clamp(dna.thickness + bass * 0.032f - highs * 0.006f, 0.22f, 0.98f);
+            dna.curvature = clamp(dna.curvature + mids * 0.026f + sustain * 0.010f, 0.22f, 0.97f);
+            dna.loopFrequency = clamp(dna.loopFrequency + mids * 0.018f + onset * 0.010f, 0.12f, 0.96f);
+            dna.accentLines = clamp(dna.accentLines + highs * 0.038f + onset * 0.012f, 0.05f, 0.78f);
+            dna.rhythm = clamp(dna.rhythm + (mids - 0.28f) * 0.022f, 0.14f, 0.95f);
+            dna.chaos = clamp(dna.chaos + onset * 0.010f + highs * 0.006f, 0.08f, 0.54f);
+            if (bass > 0.42f) dna.secondaryShapeCount = Math.min(6, dna.secondaryShapeCount + 1);
+            if (highs > 0.38f) dna.accentShapeCount = Math.min(4, dna.accentShapeCount + 1);
+            rebuild();
+        }
+
+        void cultivateFromSound(float bass, float mids, float highs, float sustain) {
+            dna.growth = clamp(dna.growth + mids * 0.010f + sustain * 0.004f, 0.14f, 1.0f);
+            dna.thickness = clamp(dna.thickness + bass * 0.006f - highs * 0.002f, 0.22f, 0.98f);
+            dna.curvature = clamp(dna.curvature + sustain * 0.006f + mids * 0.004f, 0.22f, 0.97f);
+            dna.accentLines = clamp(dna.accentLines + highs * 0.007f, 0.05f, 0.78f);
+            dna.twist += (highs - bass) * 0.006f;
+            if (mids + bass + highs > 0.24f) dna.seed += 17L + (long)((bass + mids + highs) * 100f);
+            rebuild();
+        }
+
+        void restFromSilence(float silence) {
+            dna.chaos = clamp(dna.chaos - 0.008f * silence, 0.08f, 0.54f);
+            dna.accentLines = clamp(dna.accentLines - 0.004f * silence, 0.04f, 0.78f);
+            dna.balance = clamp(dna.balance + 0.004f * silence, 0.30f, 0.95f);
+            dna.seed += 5L;
             rebuild();
         }
 

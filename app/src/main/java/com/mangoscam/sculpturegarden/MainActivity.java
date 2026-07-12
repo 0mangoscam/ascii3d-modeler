@@ -1,6 +1,8 @@
 package com.mangoscam.sculpturegarden;
 
+import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -23,13 +25,14 @@ import android.view.WindowManager;
 
 import java.io.IOException;
 
-public class MainActivity extends Activity implements SensorEventListener {
+public class MainActivity extends Activity implements SensorEventListener, AudioGrowthEngine.Listener {
     private SculptureGardenView gardenView;
     private SensorManager sensorManager;
     private Sensor accelerometer;
     private MidiManager midiManager;
     private MidiDevice connectedMidiDevice;
     private MidiOutputPort connectedOutputPort;
+    private AudioGrowthEngine audioGrowthEngine;
     private long lastShakeTime = 0L;
     private float lastX;
     private float lastY;
@@ -65,6 +68,9 @@ public class MainActivity extends Activity implements SensorEventListener {
         setContentView(gardenView);
         enterImmersiveMode();
 
+        audioGrowthEngine = new AudioGrowthEngine(this);
+        ensureAudioGrowthPermission();
+
         sensorManager = (SensorManager) getSystemService(SENSOR_SERVICE);
         if (sensorManager != null) {
             accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -87,6 +93,7 @@ public class MainActivity extends Activity implements SensorEventListener {
             sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME);
         }
         if (midiManager != null) scanMidiDevices();
+        if (hasAudioPermission() && audioGrowthEngine != null && !audioGrowthEngine.isRunning()) audioGrowthEngine.start();
         gardenView.resume();
     }
 
@@ -96,6 +103,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         if (sensorManager != null) {
             sensorManager.unregisterListener(this);
         }
+        if (audioGrowthEngine != null) audioGrowthEngine.stop();
         gardenView.pause();
     }
 
@@ -103,7 +111,49 @@ public class MainActivity extends Activity implements SensorEventListener {
     protected void onDestroy() {
         super.onDestroy();
         if (midiManager != null) midiManager.unregisterDeviceCallback(midiCallback);
+        if (audioGrowthEngine != null) audioGrowthEngine.stop();
         closeMidi();
+    }
+
+
+    private void ensureAudioGrowthPermission() {
+        if (hasAudioPermission()) {
+            if (audioGrowthEngine != null) audioGrowthEngine.start();
+            return;
+        }
+        if (android.os.Build.VERSION.SDK_INT >= 23) {
+            requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, 404);
+        } else if (audioGrowthEngine != null) {
+            audioGrowthEngine.start();
+        }
+    }
+
+    private boolean hasAudioPermission() {
+        return android.os.Build.VERSION.SDK_INT < 23
+                || checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED;
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == 404) {
+            boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+            if (granted && audioGrowthEngine != null) {
+                audioGrowthEngine.start();
+            } else if (gardenView != null) {
+                gardenView.setMicListening(false, "MIC PERMISSION NEEDED");
+            }
+        }
+    }
+
+    @Override
+    public void onAudioFrame(float rms, float bass, float mids, float highs, float onset, float sustain, float silence) {
+        if (gardenView != null) gardenView.onAudioFrame(rms, bass, mids, highs, onset, sustain, silence);
+    }
+
+    @Override
+    public void onAudioState(boolean listening, String label) {
+        if (gardenView != null) gardenView.setMicListening(listening, label);
     }
 
     private void enterImmersiveMode() {
