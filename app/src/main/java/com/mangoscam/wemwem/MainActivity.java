@@ -66,17 +66,13 @@ public class MainActivity extends Activity {
             MidiOutputPort outputPort = device.openOutputPort(0);
             if (outputPort == null) return;
             openMidiPorts.add(outputPort);
-            try {
-                outputPort.connect(new MidiReceiver() {
+            outputPort.connect(new MidiReceiver() {
                     @Override
-                    public void onSend(byte[] msg, int offset, int count, long timestamp) throws IOException {
+                    public void onSend(byte[] msg, int offset, int count, long timestamp) {
                         parseMidi(msg, offset, count);
                     }
                 });
-                view.setMidiStatus("MIDI · PLAYING FIELD");
-            } catch (IOException e) {
-                view.setMidiStatus("MIDI · CONNECT ERROR");
-            }
+            view.setMidiStatus("MIDI · PLAYING FIELD");
         }, null);
     }
 
