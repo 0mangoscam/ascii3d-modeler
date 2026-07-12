@@ -12,7 +12,6 @@ import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.Window;
 import android.view.WindowManager;
-import java.io.IOException;
 import java.util.ArrayList;
 
 public class MainActivity extends Activity {
